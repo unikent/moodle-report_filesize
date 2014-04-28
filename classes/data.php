@@ -39,13 +39,13 @@ class data
 
         $select = 'c.id, c.shortname, SUM(f.filesize) AS filesize, COUNT(DISTINCT f.id) AS totalfiles';
         $select = $data->get_sql($select, $category, $params);
-        $data = $data->get_result($select, $params, $limitfrom, $limitnum);
+        $result = $data->get_result($select, $params, $limitfrom, $limitnum);
 
         $select = $data->get_sql('COUNT(DISTINCT fctx.instanceid) AS count', $category, $params);
         $total = $data->get_total($select, $params);
 
         return array(
-            "data" => $data,
+            "data" => $result,
             "total" => $total
         );
     }
