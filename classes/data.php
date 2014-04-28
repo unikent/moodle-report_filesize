@@ -124,6 +124,11 @@ class data
             WHERE f.filesize > 0
 SQL;
 
+        $category = $DB->get_field('context', 'id', array(
+            'instanceid' => $category,
+            'contextlevel' => CONTEXT_COURSECAT
+        ));
+
         $params = array();
         if ($category !== 0) {
             $sql .= " AND ctx.path LIKE :category";
