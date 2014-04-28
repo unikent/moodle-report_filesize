@@ -37,5 +37,23 @@ echo $OUTPUT->header();
 
 echo $OUTPUT->heading(get_string('pluginname', 'report_filesize'));
 
+// Setup the table.
+$table = new html_table();
+$table->head  = array("Course", "File count", "Total file size");
+$table->colclasses = array('mdl-left course', 'mdl-left count', 'mdl-left size');
+$table->attributes = array('class' => 'admintable filesizereport generaltable');
+$table->id = 'filesizereporttable';
+$table->data  = array();
+
+$data = \report_filesize\data::get_data();
+foreach ($data as $item) {
+    $course = new \html_table_cell(\html_writer::tag('a', $item->shortname, array(
+        'href' => $CFG->wwwroot . '/course/view.php?id=' . $item->id,
+        'target' => '_blank'
+    )));
+    $table->data[] = array($course, $item->totalfiles, $item->filesize);
+}
+
+echo html_writer::table($table);
 
 echo $OUTPUT->footer();

@@ -60,7 +60,7 @@ class data
     private function get_result($limitfrom = 0, $limitnum = 0) {
         global $DB;
 
-        $sql = 'SELECT c.id, COUNT(ftmp.path), SUM(ftmp.filesize)
+        $sql = 'SELECT c.id, c.shortname, COUNT(ftmp.path) totalfiles, SUM(ftmp.filesize) filesize
                 FROM {course} c
                 INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
                 INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.path LIKE CONCAT("%/", ctx.id, "/%")
