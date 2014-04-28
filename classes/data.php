@@ -42,31 +42,52 @@ class data
     /**
      * Creates our temporary table
      */
-    public static function get_data($limitfrom = 0, $limitnum = 0) {
+    public static function get_result_set($limitfrom = 0, $limitnum = 0) {
         $data = new static();
         $data->create_tmp_table();
         $data->fill_tmp_table();
 
-        $result = $data->get_result($limitfrom, $limitnum);
+        $select = $data->get_sql('c.id, c.shortname, COUNT(ftmp.id) totalfiles, SUM(ftmp.filesize) filesize');
+        $result = $data->get_result($select, $limitfrom, $limitnum);
+
+        $select = $data->get_sql('COUNT(DISTINCT c.id) AS count');
+        $total = $data->get_total($select);
 
         $data->destroy_tmp_table();
 
-        return $result;
+        return array(
+            "data" => $result,
+            "total" => $total
+        );
     }
 
     /**
      * Grab a result set from the db
      */
-    private function get_result($limitfrom = 0, $limitnum = 0) {
-        global $DB;
-
-        $sql = 'SELECT c.id, c.shortname, COUNT(ftmp.id) totalfiles, SUM(ftmp.filesize) filesize
+    private function get_sql($select) {
+        $sql = 'SELECT '.$select.'
                 FROM {course} c
                 INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
-                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.ctxpath LIKE CONCAT("%/", ctx.id, "/%")
-                GROUP BY c.id';
+                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.ctxpath LIKE CONCAT("%/", ctx.id, "/%")';
 
+        return $sql;
+    }
+
+    /**
+     * Grab a result set from the db
+     */
+    private function get_result($sql, $limitfrom = 0, $limitnum = 0) {
+        global $DB;
+        $sql .= 'GROUP BY c.id';
         return $DB->get_records_sql($sql, array(), $limitfrom, $limitnum);
+    }
+
+    /**
+     * Count the total number of results
+     */
+    private function get_total($sql) {
+        global $DB;
+        return $DB->count_records_sql($sql, array());
     }
 
     /**

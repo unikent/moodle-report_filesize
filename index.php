@@ -32,7 +32,6 @@ $page    = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 25, PARAM_INT);
 $category = optional_param('category', 0, PARAM_INT);
 
-
 echo $OUTPUT->header();
 
 echo $OUTPUT->heading(get_string('pluginname', 'report_filesize'));
@@ -45,8 +44,8 @@ $table->attributes = array('class' => 'admintable filesizereport generaltable');
 $table->id = 'filesizereporttable';
 $table->data  = array();
 
-$data = \report_filesize\data::get_data();
-foreach ($data as $item) {
+$resultset = \report_filesize\data::get_result_set($page * $perpage, $perpage);
+foreach ($resultset['data'] as $item) {
     $course = new \html_table_cell(\html_writer::tag('a', $item->shortname, array(
         'href' => $CFG->wwwroot . '/course/view.php?id=' . $item->id,
         'target' => '_blank'
@@ -55,5 +54,8 @@ foreach ($data as $item) {
 }
 
 echo html_writer::table($table);
+
+$baseurl = new moodle_url('/report/filesize/index.php', array('perpage' => $perpage));
+echo $OUTPUT->paging_bar($resultset['total'], $page, $perpage, $baseurl);
 
 echo $OUTPUT->footer();
