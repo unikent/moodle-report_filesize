@@ -60,13 +60,13 @@ $table->id = 'filesizereporttable';
 $table->data  = array();
 
 $resultset = \report_filesize\data::get_result_set($category, $page * $perpage, $perpage);
-foreach ($resultset['data'] as $item) {
-    $course = new \html_table_cell(\html_writer::tag('a', $item->shortname, array(
-        'href' => $CFG->wwwroot . '/course/view.php?id=' . $item->id,
+foreach ($resultset['data'] as $k => $item) {
+    $course = new \html_table_cell(\html_writer::tag('a', $item['shortname'], array(
+        'href' => $CFG->wwwroot . '/course/view.php?id=' . $item['cid'],
         'target' => '_blank'
     )));
 
-    $table->data[] = array($course, $item->totalfiles, \report_filesize\data::pretty_filesize($item->filesize));
+    $table->data[] = array($course, $item["count"], \report_filesize\data::pretty_filesize($item["size"]));
 }
 
 echo html_writer::table($table);

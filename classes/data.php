@@ -35,14 +35,75 @@ class data
     public static function get_result_set($category = 0, $limitfrom = 0, $limitnum = 0) {
         $data = new static();
 
-        $params = array();
+        raise_memory_limit(MEMORY_HUGE);
 
-        $select = 'c.id, c.shortname, SUM(f.filesize) AS filesize, COUNT(DISTINCT f.id) AS totalfiles';
-        $select = $data->get_sql($select, $category, $params);
-        $result = $data->get_result($select, $params, $limitfrom, $limitnum);
+        // Grab a list of all relevant files.
+        $files = $data->get_files($category);
 
-        $select = $data->get_sql('COUNT(DISTINCT fctx.instanceid) AS count', $category, $params);
-        $total = $data->get_total($select, $params);
+        // Grab a list of all relevant courses.
+        $courses = $data->get_courses($category);
+
+        // Do some gathering.
+        $paths = array();
+        foreach ($courses as $course) {
+            if (!isset($paths[$course->path])) {
+                $paths[$course->path] = array(
+                    "cid" => $course->id,
+                    "shortname" => $course->shortname,
+                    "size" => 0,
+                    "count" => 0
+                );
+            }
+        }
+        unset($courses);
+
+        // Now gather files.
+        foreach ($files as $file) {
+            $subpath = $file->path;
+            while (!empty($subpath) && !isset($paths[$subpath])) {
+                $tmp = explode('/', $subpath);
+                array_pop($tmp);
+                $subpath = implode('/', $tmp);
+
+            }
+
+            if (!empty($subpath)) {
+                $paths[$subpath]['size'] += $file->filesize;
+                $paths[$subpath]['count'] += $file->files;
+            }
+        }
+        unset($files);
+
+        // Map paths to courses.
+        $result = array();
+        foreach ($paths as $path) {
+            if (!isset($result[$path['cid']])) {
+                $result[$path['cid']] = array(
+                    "cid" => $path['cid'],
+                    "shortname" => $path['shortname'],
+                    "size" => 0,
+                    "count" => 0
+                );
+            }
+            $result[$path['cid']]['size'] += $path['size'];
+            $result[$path['cid']]['count'] += $path['count'];
+        }
+
+        // Filtering.
+        $result = array_filter($result, function($a) {
+            return $a['count'] > 0;
+        });
+
+        // Ordering.
+        uasort($result, function ($a, $b) {
+            return $a['size'] < $b['size'];
+        });
+
+        // Total them up.
+        $total = count($result);
+
+        // Split up.
+        $result = array_slice($result, $limitfrom, $limitnum);
 
         return array(
             "data" => $result,
@@ -51,44 +112,55 @@ class data
     }
 
     /**
-     * Grab a result set from the db
+     * Grab a result set of files from the db
      */
-    private function get_sql($select, $category, &$params) {
-        $sql = 'SELECT '.$select.'
-                FROM {files} f
-                INNER JOIN {context} fctx ON fctx.id=f.contextid
-                INNER JOIN {course} c ON c.id=fctx.instanceid
-                INNER JOIN {course_categories} cc ON cc.id=c.category
-                WHERE f.filesize > 0 AND fctx.contextlevel=:coursectx';
+    private function get_files($category) {
+        global $DB;
+
+        $sql = <<<SQL
+            SELECT ctx.path, COUNT(f.id) files, SUM(f.filesize) filesize
+            FROM {files} f
+            INNER JOIN {context} ctx ON ctx.id=f.contextid
+            WHERE f.filesize > 0
+SQL;
+
+        $params = array();
+        if ($category !== 0) {
+            $sql .= " AND ctx.path LIKE :category";
+            $params['category'] = "%/" . $category . "/%";
+        }
+
+        $sql .= ' GROUP BY ctx.path';
+
+        return $DB->get_records_sql($sql, $params);
+    }
+
+    /**
+     * Grab a result set of courses from the db
+     */
+    private function get_courses($category) {
+        global $DB;
+
+        $sql = <<<SQL
+            SELECT c.id, c.shortname, ctx.path
+            FROM {course} c
+            INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=:coursectx
+            INNER JOIN {course_categories} cc ON cc.id=c.category
+SQL;
 
         $params = array(
             "coursectx" => CONTEXT_COURSE
         );
 
         if ($category !== 0) {
-            $sql .= " AND cc.path LIKE :categorya OR cc.path LIKE :categoryb";
-            $params['categorya'] = "%/" . $category;
-            $params['categoryb'] = "%/" . $category . "/%";
+            $sql .= " AND (cc.path LIKE :cata OR cc.path LIKE :catb)";
+            $params['cata'] = "%/" . $category . "/%";
+            $params['catb'] = "%/" . $category;
         }
 
-        return $sql;
-    }
+        $sql .= ' GROUP BY ctx.path';
 
-    /**
-     * Grab a result set from the db
-     */
-    private function get_result($sql, $params, $limitfrom = 0, $limitnum = 0) {
-        global $DB;
-        $sql .= ' GROUP BY fctx.instanceid ORDER BY filesize DESC';
-        return $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
-    }
-
-    /**
-     * Count the total number of results
-     */
-    private function get_total($sql, $params) {
-        global $DB;
-        return $DB->count_records_sql($sql, $params);
+        return $DB->get_records_sql($sql, $params);
     }
 
     /**
