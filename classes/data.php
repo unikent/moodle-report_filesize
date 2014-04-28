@@ -60,10 +60,10 @@ class data
     private function get_result($limitfrom = 0, $limitnum = 0) {
         global $DB;
 
-        $sql = 'SELECT c.id, c.shortname, COUNT(ftmp.path) totalfiles, SUM(ftmp.filesize) filesize
+        $sql = 'SELECT c.id, c.shortname, COUNT(ftmp.id) totalfiles, SUM(ftmp.filesize) filesize
                 FROM {course} c
                 INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
-                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.path LIKE CONCAT("%/", ctx.id, "/%")
+                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.ctxpath LIKE CONCAT("%/", ctx.id, "/%")
                 GROUP BY c.id';
 
         return $DB->get_records_sql($sql, array(), $limitfrom, $limitnum);
@@ -95,9 +95,9 @@ class data
 
         $sql = 'INSERT INTO {' . $this->_uid . '} (ctxpath, filesize)
                 SELECT ctx.path, f.filesize FROM {files} f
-                INNER JOIN {context} ctx ON ctx.id=f.contextid;';
+                INNER JOIN {context} ctx ON ctx.id=f.contextid';
 
-        $DB->execute($sql, array($timestart, $timeend));
+        $DB->execute($sql);
     }
 
     /**
