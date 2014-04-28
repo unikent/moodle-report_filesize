@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version info
+ * Cache definitions
  *
  * @package    report
  * @subpackage filesize
@@ -23,8 +23,11 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die;
+defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2014042801;
-$plugin->requires  = 2013110500;
-$plugin->component = 'report_filesize';
+$definitions = array(
+    'filesizedata' => array(
+        'mode' => cache_store::MODE_APPLICATION,
+        'ttl'  => 3600 // Cache for 1 hour.
+    )
+);
