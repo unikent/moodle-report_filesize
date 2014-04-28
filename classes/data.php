@@ -36,7 +36,7 @@ class data
      * Singleton!
      */
     private function __construct() {
-        $this->_uid = uniqid("tmp_fsize_report_");
+        $this->_uid = uniqid("tmp_fsize_");
     }
 
     /**
@@ -77,7 +77,7 @@ class data
 
         $dbman = $DB->get_manager();
 
-        $table = new xmldb_table($this->_uid);
+        $table = new \xmldb_table($this->_uid);
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('ctxpath', XMLDB_TYPE_CHAR, 255, null, XMLDB_NOTNULL, null);
         $table->add_field('filesize', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, '0');
@@ -114,7 +114,7 @@ class data
 
         $dbman = $DB->get_manager();
         if ($dbman->table_exists($this->_uid)) {
-            $table = new xmldb_table($this->_uid);
+            $table = new \xmldb_table($this->_uid);
 
             try {
                 $dbman->drop_table($table);
