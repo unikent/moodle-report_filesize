@@ -30,18 +30,41 @@ defined('MOODLE_INTERNAL') || die();
 class data
 {
     /**
-     * Creates our temporary table
+     * Returns our result set
      */
     public static function get_result_set($category = 0, $limitfrom = 0, $limitnum = 0) {
         $data = new static();
 
-        raise_memory_limit(MEMORY_HUGE);
+        // Grab data.
+        $cache = \cache::make('report_filesize', 'filesizedata');
+        $result = $cache->get($category);
 
+        if ($result === false) {
+            $result = $data->get_raw_result_set($category);
+            $cache->set($category, $result);
+        }
+
+        // Total them up.
+        $total = count($result);
+
+        // Split up.
+        $result = array_slice($result, $limitfrom, $limitnum);
+
+        return array(
+            "data" => $result,
+            "total" => $total
+        );
+    }
+
+    /**
+     * Grab a raw unsliced result set.
+     */
+    private function get_raw_result_set($category) {
         // Grab a list of all relevant files.
-        $files = $data->get_files($category);
+        $files = $this->get_files($category);
 
         // Grab a list of all relevant courses.
-        $courses = $data->get_courses($category);
+        $courses = $this->get_courses($category);
 
         // Do some gathering.
         $paths = array();
@@ -99,16 +122,7 @@ class data
             return $a['size'] < $b['size'];
         });
 
-        // Total them up.
-        $total = count($result);
-
-        // Split up.
-        $result = array_slice($result, $limitfrom, $limitnum);
-
-        return array(
-            "data" => $result,
-            "total" => $total
-        );
+        return $result;
     }
 
     /**

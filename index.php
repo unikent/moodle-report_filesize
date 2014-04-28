@@ -28,6 +28,8 @@ require_once($CFG->libdir . '/adminlib.php');
 
 admin_externalpage_setup('reportfilesize', '', null, '', array('pagelayout' => 'report'));
 
+raise_memory_limit(MEMORY_HUGE);
+
 $page    = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 25, PARAM_INT);
 $category = optional_param('category', 0, PARAM_INT);

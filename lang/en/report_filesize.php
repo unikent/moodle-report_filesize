@@ -24,3 +24,4 @@
  */
 
 $string['pluginname'] = 'Filesize overview';
+$string['cachedef_filesizedata'] = 'File Size Data';
