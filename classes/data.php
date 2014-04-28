@@ -37,11 +37,11 @@ class data
 
         $params = array();
 
-        $select = 'c.id, c.shortname, SUM(fctx_tmp.filesize) AS filesize, COUNT(fctx_tmp.id) AS totalfiles';
+        $select = 'c.id, c.shortname, SUM(f.filesize) AS filesize, COUNT(DISTINCT f.id) AS totalfiles';
         $select = $data->get_sql($select, $category, $params);
         $result = $data->get_result($select, $params, $limitfrom, $limitnum);
 
-        $select = $data->get_sql('COUNT(DISTINCT c.id) AS count', $category, $params);
+        $select = $data->get_sql('COUNT(DISTINCT fctx.instanceid) AS count', $category, $params);
         $total = $data->get_total($select, $params);
 
         return array(
@@ -54,28 +54,19 @@ class data
      * Grab a result set from the db
      */
     private function get_sql($select, $category, &$params) {
-
-        $sql = <<<SQL
-            SELECT $select
-            FROM {course} c
-            INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
-            INNER JOIN {course_categories} cc ON cc.id=c.category
-            INNER JOIN (
-                SELECT DISTINCT f.id, ictx.path, f.filesize
+        $sql = 'SELECT '.$select.'
                 FROM {files} f
-                INNER JOIN {context} ictx ON ictx.id=f.contextid
-                WHERE f.filesize > 0 AND f.component NOT IN (
-                    'mod_turnitintool', 'mod_folder',
-                    'assignsubmission_onlinetext', 'assignsubmission_file',
-                    'assignfeedback_file', 'assignfeedback_editpdf'
-                )
-            ) fctx_tmp ON fctx_tmp.path LIKE CONCAT("%/", ctx.id, "/%") OR fctx_tmp.path LIKE CONCAT("%/", ctx.id)
-SQL;
+                INNER JOIN {context} fctx ON fctx.id=f.contextid
+                INNER JOIN {course} c ON c.id=fctx.instanceid
+                INNER JOIN {course_categories} cc ON cc.id=c.category
+                WHERE f.filesize > 0 AND fctx.contextlevel=:coursectx';
 
-        $params = array();
+        $params = array(
+            "coursectx" => CONTEXT_COURSE
+        );
 
         if ($category !== 0) {
-            $sql .= " WHERE cc.path LIKE :categorya OR cc.path LIKE :categoryb";
+            $sql .= " AND cc.path LIKE :categorya OR cc.path LIKE :categoryb";
             $params['categorya'] = "%/" . $category;
             $params['categoryb'] = "%/" . $category . "/%";
         }
@@ -88,7 +79,7 @@ SQL;
      */
     private function get_result($sql, $params, $limitfrom = 0, $limitnum = 0) {
         global $DB;
-        $sql .= ' GROUP BY c.id ORDER BY filesize DESC';
+        $sql .= ' GROUP BY fctx.instanceid ORDER BY filesize DESC';
         return $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
     }
 
