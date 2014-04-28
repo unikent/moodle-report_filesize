@@ -63,6 +63,32 @@ class data
     }
 
     /**
+     * Alternate SQL - Doesnt use temporary tables.
+     */
+    private function get_alternate_sql() {
+        $sql = 'SELECT c.id, COUNT(fctx_tmp.path), SUM(fctx_tmp.filesize)
+                FROM {course} c
+                INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
+                INNER JOIN {course_categories} cc ON cc.id=c.category
+                INNER JOIN (
+                    SELECT DISTINCT f.id, ictx.path, SUM(f.filesize)
+                    FROM {files} f
+                    INNER JOIN {context} ictx ON ictx.id=f.contextid
+                    WHERE f.filesize > 0
+                    GROUP BY f.contextid
+                ) fctx_tmp ON fctx_tmp.path LIKE CONCAT("%/", ctx.id, "/%")';
+
+        $params = array();
+        if ($category !== 0) {
+            $sql .= " WHERE cc.path LIKE :categorya OR cc.path LIKE :categoryb";
+            $params['categorya'] = "%/" . $category;
+            $params['categoryb'] = "%/" . $category . "/%";
+        }
+
+        return $sql;
+    }
+
+    /**
      * Grab a result set from the db
      */
     private function get_sql($select, $category, &$params) {
@@ -113,6 +139,7 @@ class data
         $table->add_field('filesize', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, '0');
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $table->add_index('i_path', XMLDB_INDEX_NOTUNIQUE, array('ctxpath'));
+        $table->add_index('i_filesize', XMLDB_INDEX_NOTUNIQUE, array('filesize'));
 
         $dbman->create_temp_table($table);
     }
@@ -124,8 +151,10 @@ class data
         global $DB;
 
         $sql = 'INSERT INTO {' . $this->_uid . '} (ctxpath, filesize)
-                SELECT ctx.path, f.filesize FROM {files} f
-                INNER JOIN {context} ctx ON ctx.id=f.contextid';
+                SELECT ctx.path, SUM(f.filesize) AS filesize FROM {files} f
+                INNER JOIN {context} ctx ON ctx.id=f.contextid
+                WHERE f.filesize > 0
+                GROUP BY f.contextid';
 
         $DB->execute($sql);
     }
