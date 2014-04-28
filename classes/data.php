@@ -87,7 +87,7 @@ class data
      */
     private function get_result($sql, $params, $limitfrom = 0, $limitnum = 0) {
         global $DB;
-        $sql .= ' GROUP BY c.id';
+        $sql .= ' GROUP BY c.id ORDER BY filesize DESC';
         return $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
     }
 
@@ -152,5 +152,22 @@ class data
                 // Silently hide.
             }
         }
+    }
+
+    /**
+     * Prettify a file size
+     */
+    public static function pretty_filesize($size) {
+        $filesize = $size . ' bytes';
+
+        if ($size >= 1073741824) {
+            $filesize = round($size / 1024 / 1024 / 1024, 1) . 'GB';
+        } else if ($size >= 1048576) {
+            $filesize = round($size / 1024 / 1024, 1) . 'MB';
+        } else if ($size >= 1024) {
+            $filesize = round($size / 1024, 1) . 'KB';
+        }
+
+        return $filesize;
     }
 }

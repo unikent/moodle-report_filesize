@@ -65,7 +65,8 @@ foreach ($resultset['data'] as $item) {
         'href' => $CFG->wwwroot . '/course/view.php?id=' . $item->id,
         'target' => '_blank'
     )));
-    $table->data[] = array($course, $item->totalfiles, $item->filesize);
+
+    $table->data[] = array($course, $item->totalfiles, \report_filesize\data::pretty_filesize($item->filesize));
 }
 
 echo html_writer::table($table);
