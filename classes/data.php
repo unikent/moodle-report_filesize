@@ -42,17 +42,31 @@ class data
     /**
      * Creates our temporary table
      */
-    public static function get_data() {
+    public static function get_data($limitfrom = 0, $limitnum = 0) {
         $data = new static();
         $data->create_tmp_table();
         $data->fill_tmp_table();
 
-        $result = array();
-        // TODO..
+        $result = $data->get_result($limitfrom, $limitnum);
 
         $data->destroy_tmp_table();
 
         return $result;
+    }
+
+    /**
+     * Grab a result set from the db
+     */
+    private function get_result($limitfrom = 0, $limitnum = 0) {
+        global $DB;
+
+        $sql = 'SELECT c.id, COUNT(ftmp.path), SUM(ftmp.filesize)
+                FROM {course} c
+                INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
+                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.path LIKE CONCAT("%/", ctx.id, "/%")
+                GROUP BY c.id';
+
+        return $DB->get_records_sql($sql, array(), $limitfrom, $limitnum);
     }
 
     /**
