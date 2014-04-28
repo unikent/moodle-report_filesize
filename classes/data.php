@@ -45,6 +45,7 @@ class data
     public static function get_data() {
         $data = new static();
         $data->create_tmp_table();
+        $data->fill_tmp_table();
 
         $result = array();
         // TODO..
@@ -70,6 +71,19 @@ class data
         $table->add_index('i_path', XMLDB_INDEX_NOTUNIQUE, array('ctxpath'));
 
         $dbman->create_temp_table($table);
+    }
+
+    /**
+     * Fills up our temporary table
+     */
+    private function fill_tmp_table() {
+        global $DB;
+
+        $sql = 'INSERT INTO {' . $this->_uid . '} (ctxpath, filesize)
+                SELECT ctx.path, f.filesize FROM {files} f
+                INNER JOIN {context} ctx ON ctx.id=f.contextid;';
+
+        $DB->execute($sql, array($timestart, $timeend));
     }
 
     /**
