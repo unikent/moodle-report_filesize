@@ -42,16 +42,17 @@ class data
     /**
      * Creates our temporary table
      */
-    public static function get_result_set($limitfrom = 0, $limitnum = 0) {
+    public static function get_result_set($category = 0, $limitfrom = 0, $limitnum = 0) {
         $data = new static();
         $data->create_tmp_table();
         $data->fill_tmp_table();
 
-        $select = $data->get_sql('c.id, c.shortname, COUNT(ftmp.id) totalfiles, SUM(ftmp.filesize) filesize');
-        $result = $data->get_result($select, $limitfrom, $limitnum);
+        $params = array();
+        $select = $data->get_sql('c.id, c.shortname, COUNT(ftmp.id) totalfiles, SUM(ftmp.filesize) filesize', $category, $params);
+        $result = $data->get_result($select, $params, $limitfrom, $limitnum);
 
-        $select = $data->get_sql('COUNT(DISTINCT c.id) AS count');
-        $total = $data->get_total($select);
+        $select = $data->get_sql('COUNT(DISTINCT c.id) AS count', $category, $params);
+        $total = $data->get_total($select, $params);
 
         $data->destroy_tmp_table();
 
@@ -64,11 +65,19 @@ class data
     /**
      * Grab a result set from the db
      */
-    private function get_sql($select) {
+    private function get_sql($select, $category, &$params) {
         $sql = 'SELECT '.$select.'
                 FROM {course} c
                 INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
-                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.ctxpath LIKE CONCAT("%/", ctx.id, "/%")';
+                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.ctxpath LIKE CONCAT("%/", ctx.id, "/%")
+                INNER JOIN {course_categories} cc ON cc.id=c.category';
+
+        $params = array();
+        if ($category !== 0) {
+            $sql .= " WHERE cc.path LIKE :categorya OR cc.path LIKE :categoryb";
+            $params['categorya'] = "%/" . $category;
+            $params['categoryb'] = "%/" . $category . "/%";
+        }
 
         return $sql;
     }
@@ -76,18 +85,18 @@ class data
     /**
      * Grab a result set from the db
      */
-    private function get_result($sql, $limitfrom = 0, $limitnum = 0) {
+    private function get_result($sql, $params, $limitfrom = 0, $limitnum = 0) {
         global $DB;
-        $sql .= 'GROUP BY c.id';
-        return $DB->get_records_sql($sql, array(), $limitfrom, $limitnum);
+        $sql .= ' GROUP BY c.id';
+        return $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
     }
 
     /**
      * Count the total number of results
      */
-    private function get_total($sql) {
+    private function get_total($sql, $params) {
         global $DB;
-        return $DB->count_records_sql($sql, array());
+        return $DB->count_records_sql($sql, $params);
     }
 
     /**

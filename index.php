@@ -32,9 +32,24 @@ $page    = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 25, PARAM_INT);
 $category = optional_param('category', 0, PARAM_INT);
 
+$PAGE->requires->js_init_call('M.report_filesize.init', array(), false, array(
+    'name' => 'report_filesize',
+    'fullpath' => '/report/filesize/module.js'
+));
+
 echo $OUTPUT->header();
 
 echo $OUTPUT->heading(get_string('pluginname', 'report_filesize'));
+
+// Allow restriction by category.
+$select = array(
+    0 => "All"
+);
+$categories = $DB->get_records('course_categories', null, 'name', 'id,name');
+foreach ($categories as $obj) {
+    $select[$obj->id] = $obj->name;
+}
+echo html_writer::select($select, 'category', $category);
 
 // Setup the table.
 $table = new html_table();
@@ -44,7 +59,7 @@ $table->attributes = array('class' => 'admintable filesizereport generaltable');
 $table->id = 'filesizereporttable';
 $table->data  = array();
 
-$resultset = \report_filesize\data::get_result_set($page * $perpage, $perpage);
+$resultset = \report_filesize\data::get_result_set($category, $page * $perpage, $perpage);
 foreach ($resultset['data'] as $item) {
     $course = new \html_table_cell(\html_writer::tag('a', $item->shortname, array(
         'href' => $CFG->wwwroot . '/course/view.php?id=' . $item->id,
@@ -55,7 +70,7 @@ foreach ($resultset['data'] as $item) {
 
 echo html_writer::table($table);
 
-$baseurl = new moodle_url('/report/filesize/index.php', array('perpage' => $perpage));
+$baseurl = new moodle_url('/report/filesize/index.php', array('perpage' => $perpage, 'category' => $category));
 echo $OUTPUT->paging_bar($resultset['total'], $page, $perpage, $baseurl);
 
 echo $OUTPUT->footer();
