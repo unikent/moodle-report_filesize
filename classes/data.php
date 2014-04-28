@@ -58,11 +58,41 @@ class data
      * Creates our temporary table
      */
     private function create_tmp_table() {
+        global $DB;
+
+        $dbman = $DB->get_manager();
+
+        $table = new xmldb_table($this->_uid);
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('ctxpath', XMLDB_TYPE_CHAR, 255, null, XMLDB_NOTNULL, null);
+        $table->add_field('filesize', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_index('i_path', XMLDB_INDEX_NOTUNIQUE, array('ctxpath'));
+
+        $dbman->create_temp_table($table);
     }
 
     /**
      * Creates our temporary table
      */
     private function destroy_tmp_table() {
+        global $DB;
+
+        // Saftey check to make sure we dont drop a core table.
+        if (strpos($this->_uid, "tmp_") !== 0) {
+            // Uh oh.
+            return false;
+        }
+
+        $dbman = $DB->get_manager();
+        if ($dbman->table_exists($this->_uid)) {
+            $table = new xmldb_table($this->_uid);
+
+            try {
+                $dbman->drop_table($table);
+            } catch (Exception $e) {
+                // Silently hide.
+            }
+        }
     }
 }
