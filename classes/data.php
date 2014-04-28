@@ -29,63 +29,25 @@ defined('MOODLE_INTERNAL') || die();
 
 class data
 {
-    /** UUID for the TMP table */
-    private $_uid;
-
-    /**
-     * Singleton!
-     */
-    private function __construct() {
-        $this->_uid = uniqid("tmp_fsize_");
-    }
-
     /**
      * Creates our temporary table
      */
     public static function get_result_set($category = 0, $limitfrom = 0, $limitnum = 0) {
         $data = new static();
-        $data->create_tmp_table();
-        $data->fill_tmp_table();
 
         $params = array();
-        $select = $data->get_sql('c.id, c.shortname, COUNT(ftmp.id) totalfiles, SUM(ftmp.filesize) filesize', $category, $params);
-        $result = $data->get_result($select, $params, $limitfrom, $limitnum);
 
-        $select = $data->get_sql('COUNT(DISTINCT c.id) AS count', $category, $params);
+        $select = 'c.id, c.shortname, SUM(f.filesize) AS filesize, COUNT(DISTINCT f.id) AS totalfiles';
+        $select = $data->get_sql($select, $category, $params);
+        $data = $data->get_result($select, $params, $limitfrom, $limitnum);
+
+        $select = $data->get_sql('COUNT(DISTINCT fctx.instanceid) AS count', $category, $params);
         $total = $data->get_total($select, $params);
 
-        $data->destroy_tmp_table();
-
         return array(
-            "data" => $result,
+            "data" => $data,
             "total" => $total
         );
-    }
-
-    /**
-     * Alternate SQL - Doesnt use temporary tables.
-     */
-    private function get_alternate_sql() {
-        $sql = 'SELECT c.id, COUNT(fctx_tmp.path), SUM(fctx_tmp.filesize)
-                FROM {course} c
-                INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
-                INNER JOIN {course_categories} cc ON cc.id=c.category
-                INNER JOIN (
-                    SELECT DISTINCT f.id, ictx.path, SUM(f.filesize)
-                    FROM {files} f
-                    INNER JOIN {context} ictx ON ictx.id=f.contextid
-                    WHERE f.filesize > 0
-                    GROUP BY f.contextid
-                ) fctx_tmp ON fctx_tmp.path LIKE CONCAT("%/", ctx.id, "/%")';
-
-        $params = array();
-        if ($category !== 0) {
-            $sql .= " WHERE cc.path LIKE :categorya OR cc.path LIKE :categoryb";
-            $params['categorya'] = "%/" . $category;
-            $params['categoryb'] = "%/" . $category . "/%";
-        }
-
-        return $sql;
     }
 
     /**
@@ -93,14 +55,18 @@ class data
      */
     private function get_sql($select, $category, &$params) {
         $sql = 'SELECT '.$select.'
-                FROM {course} c
-                INNER JOIN {context} ctx ON ctx.instanceid=c.id AND ctx.contextlevel=50
-                INNER JOIN {' . $this->_uid . '} ftmp ON ftmp.ctxpath LIKE CONCAT("%/", ctx.id, "/%")
-                INNER JOIN {course_categories} cc ON cc.id=c.category';
+                FROM {files} f
+                INNER JOIN {context} fctx ON fctx.id=f.contextid
+                INNER JOIN {course} c ON c.id=fctx.instanceid
+                INNER JOIN {course_categories} cc ON cc.id=c.category
+                WHERE f.filesize > 0 AND fctx.contextlevel=:coursectx';
 
-        $params = array();
+        $params = array(
+            "coursectx" => CONTEXT_COURSE
+        );
+
         if ($category !== 0) {
-            $sql .= " WHERE cc.path LIKE :categorya OR cc.path LIKE :categoryb";
+            $sql .= " AND cc.path LIKE :categorya OR cc.path LIKE :categoryb";
             $params['categorya'] = "%/" . $category;
             $params['categoryb'] = "%/" . $category . "/%";
         }
@@ -113,7 +79,7 @@ class data
      */
     private function get_result($sql, $params, $limitfrom = 0, $limitnum = 0) {
         global $DB;
-        $sql .= ' GROUP BY c.id ORDER BY filesize DESC';
+        $sql .= ' GROUP BY fctx.instanceid ORDER BY filesize DESC';
         return $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
     }
 
@@ -123,64 +89,6 @@ class data
     private function get_total($sql, $params) {
         global $DB;
         return $DB->count_records_sql($sql, $params);
-    }
-
-    /**
-     * Creates our temporary table
-     */
-    private function create_tmp_table() {
-        global $DB;
-
-        $dbman = $DB->get_manager();
-
-        $table = new \xmldb_table($this->_uid);
-        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $table->add_field('ctxpath', XMLDB_TYPE_CHAR, 255, null, XMLDB_NOTNULL, null);
-        $table->add_field('filesize', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, '0');
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
-        $table->add_index('i_path', XMLDB_INDEX_NOTUNIQUE, array('ctxpath'));
-        $table->add_index('i_filesize', XMLDB_INDEX_NOTUNIQUE, array('filesize'));
-
-        $dbman->create_temp_table($table);
-    }
-
-    /**
-     * Fills up our temporary table
-     */
-    private function fill_tmp_table() {
-        global $DB;
-
-        $sql = 'INSERT INTO {' . $this->_uid . '} (ctxpath, filesize)
-                SELECT ctx.path, SUM(f.filesize) AS filesize FROM {files} f
-                INNER JOIN {context} ctx ON ctx.id=f.contextid
-                WHERE f.filesize > 0
-                GROUP BY f.contextid';
-
-        $DB->execute($sql);
-    }
-
-    /**
-     * Creates our temporary table
-     */
-    private function destroy_tmp_table() {
-        global $DB;
-
-        // Saftey check to make sure we dont drop a core table.
-        if (strpos($this->_uid, "tmp_") !== 0) {
-            // Uh oh.
-            return false;
-        }
-
-        $dbman = $DB->get_manager();
-        if ($dbman->table_exists($this->_uid)) {
-            $table = new \xmldb_table($this->_uid);
-
-            try {
-                $dbman->drop_table($table);
-            } catch (Exception $e) {
-                // Silently hide.
-            }
-        }
     }
 
     /**
