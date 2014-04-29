@@ -37,11 +37,11 @@ class data
 
         // Grab data.
         $cache = \cache::make('report_filesize', 'filesizedata');
-        $result = $cache->get($category);
+        $result = $cache->get("cat_{$category}");
 
         if ($result === false) {
             $result = $data->get_raw_result_set($category);
-            $cache->set($category, $result);
+            $cache->set("cat_{$category}", $result);
         }
 
         // Total them up.
@@ -138,15 +138,15 @@ class data
             WHERE f.filesize > 0
 SQL;
 
-        $category = $DB->get_field('context', 'id', array(
-            'instanceid' => $category,
-            'contextlevel' => CONTEXT_COURSECAT
-        ));
-
         $params = array();
         if ($category !== 0) {
+            $catctx = $DB->get_field('context', 'id', array(
+                'instanceid' => $category,
+                'contextlevel' => CONTEXT_COURSECAT
+            ));
+
             $sql .= " AND ctx.path LIKE :category";
-            $params['category'] = "%/" . $category . "/%";
+            $params['category'] = "%/" . $catctx . "/%";
         }
 
         $sql .= ' GROUP BY ctx.path';
