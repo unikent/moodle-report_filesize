@@ -25,6 +25,6 @@
 
 defined('MOODLE_INTERNAL') || die;
 
-$plugin->version   = 2014042801;
+$plugin->version   = 2014043000;
 $plugin->requires  = 2013110500;
 $plugin->component = 'report_filesize';
